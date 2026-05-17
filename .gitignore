@@ -1,0 +1,6 @@
+# Cache files
+*.cache.json
+*.cache
+
+# Analysis output (regenerated on each run)
+mp3_with_songs.txt
