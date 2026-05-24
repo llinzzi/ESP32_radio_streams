@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Radio Streams · 现在播放</title>
+  <style>
+    :root {
+      --bg: #0d0f14;
+      --surface: #15181f;
+      --surface2: #1c2029;
+      --border: #2a2f3a;
+      --text: #d4d8e0;
+      --text-dim: #6b7280;
+      --accent: #22c55e;
+      --jazz5: #f59e0b;
+      --jazz4: #eab308;
+      --jazz3: #a3e635;
+      --jazz2: #6b7280;
+      --jazz1: #4b5563;
+      --alive: #22c55e;
+      --dead: #ef4444;
+      --link: #60a5fa;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.5;
+      padding: 20px;
+    }
+    .container { max-width: 1400px; margin: 0 auto; }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .header h1 span { color: var(--accent); }
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .stats-bar {
+      display: flex;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    .stats-bar .num { color: var(--text); font-weight: 600; }
+    .stats-bar .num.alive { color: var(--alive); }
+    .stats-bar .num.dead { color: var(--dead); }
+    .btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.15s;
+    }
+    .btn:hover { background: var(--border); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #000;
+      font-weight: 600;
+    }
+    .btn-primary:hover { background: #16a34a; }
+
+    /* Volume slider */
+    .volume-control {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .volume-slider {
+      width: 80px;
+      height: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: var(--surface2);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: none;
+    }
+    .volume-slider::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: none;
+    }
+
+    /* Jazz legend */
+    .legend {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      font-size: 11px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    /* Filters */
+    .filters {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filters input, .filters select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 12px;
+    }
+    .filters input::placeholder { color: var(--text-dim); }
+    .filter-tag {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-dim);
+      transition: all 0.15s;
+    }
+    .filter-tag.active { border-color: var(--jazz5); color: var(--jazz5); }
+    .filter-tag:hover { border-color: var(--text); }
+
+    /* Table */
+    .table-wrap {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    thead th {
+      background: var(--surface);
+      padding: 8px 10px;
+      text-align: left;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    thead th:hover { color: var(--text); }
+    thead th .sort-arrow { margin-left: 4px; opacity: 0.4; }
+    thead th.sorted .sort-arrow { opacity: 1; }
+    tbody tr {
+      border-bottom: 1px solid var(--surface2);
+      transition: background 0.15s;
+    }
+    tbody tr:hover { background: var(--surface); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td {
+      padding: 6px 10px;
+      font-size: 12px;
+      vertical-align: middle;
+    }
+
+    /* Jazz rating badges */
+    .jazz-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .jazz-badge-5 { background: rgba(245,158,11,0.15); color: var(--jazz5); }
+    .jazz-badge-4 { background: rgba(234,179,8,0.15); color: var(--jazz4); }
+    .jazz-badge-3 { background: rgba(163,230,53,0.15); color: var(--jazz3); }
+    .jazz-badge-2 { background: rgba(107,114,128,0.15); color: var(--text-dim); }
+    .jazz-badge-1 { background: rgba(75,85,99,0.15); color: var(--jazz1); }
+    .jazz-stars { letter-spacing: -1px; }
+
+    /* Status dots */
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .status-dot.alive { background: var(--alive); }
+    .status-dot.dead { background: var(--dead); }
+
+    /* Song title */
+    .song-cell {
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .song-cell.empty { color: var(--text-dim); font-style: italic; }
+
+    /* Listen link */
+    .listen-link {
+      color: var(--link);
+      text-decoration: none;
+      font-size: 11px;
+    }
+    .listen-link:hover { text-decoration: underline; }
+
+    /* Select button */
+    .select-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      padding: 2px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 10px;
+      transition: all 0.15s;
+      margin-right: 4px;
+    }
+    .select-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .select-btn.selected { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; }
+    .station-row.selected { background: rgba(34,197,94,0.08); }
+    .station-row.selected td:first-child { border-left: 2px solid var(--accent); }
+
+    /* Bitrate */
+    .br-cell { font-variant-numeric: tabular-nums; }
+
+    /* Format badges */
+    .fmt-badge {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .fmt-mp3 { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .fmt-aac { background: rgba(96,165,250,0.15); color: #60a5fa; }
+    .fmt-ogg { background: rgba(251,146,60,0.15); color: #fb923c; }
+    .fmt-flac { background: rgba(168,85,247,0.15); color: #a855f7; }
+    .fmt-pls { background: rgba(236,72,153,0.15); color: #ec4899; }
+    .fmt-badge:not([class*="fmt-mp3"]):not([class*="fmt-aac"]):not([class*="fmt-ogg"]):not([class*="fmt-flac"]):not([class*="fmt-pls"]) {
+      background: rgba(148,163,184,0.15); color: #94a3b8;
+    }
+
+    /* Latency */
+    .latency-cell {
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 500;
+    }
+    .latency-fast { color: #22c55e; }    /* <200ms */
+    .latency-mid { color: #eab308; }     /* 200-800ms */
+    .latency-slow { color: #ef4444; }    /* >800ms */
+    .latency-none { color: var(--text-dim); }
+
+    /* Status text */
+    .status-text { font-size: 11px; }
+    .status-text.alive { color: var(--alive); }
+    .status-text.dead { color: var(--dead); }
+
+    /* Last updated */
+    .last-updated {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 12px;
+      text-align: center;
+    }
+
+    /* Cache status */
+    .cache-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+    }
+    .cache-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .cache-dot.active { background: var(--accent); animation: pulse 1.5s infinite; }
+    .cache-dot.idle { background: var(--text-dim); }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .cache-info { color: var(--text-dim); }
+    .cache-info span { color: var(--text); font-weight: 500; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      body { padding: 10px; }
+      .table-wrap { overflow-x: auto; }
+      .header h1 { font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <h1>🎵 Radio <span>Streams</span></h1>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">
+        <%= totalCount %> 个流 · <span class="num alive"><%= aliveCount %></span> 在线 · <span class="num dead"><%= deadCount %></span> 离线
+        · 🎷 <span class="num" style="color:var(--jazz5);"><%= jazzCounts[5] || 0 %></span> 纯正黑人爵士
+      </div>
+    </div>
+    <div class="header-controls">
+      <div class="stats-bar">
+        <span>更新: <span id="lastUpdated"><%= lastUpdated %></span></span>
+        <span id="probeStatus">
+          <% if (isProbing) { %>⏳ 扫描中...<% } else { %>✅ 已就绪<% } %>
+        </span>
+      </div>
+      <div class="volume-control">
+        <span style="font-size:11px;color:var(--text-dim);">🔊</span>
+        <input type="range" id="volumeSlider" min="1" max="100" value="80" class="volume-slider">
+        <span id="volumeDisplay" style="font-size:11px;color:var(--text-dim);min-width:30px;">80</span>
+      </div>
+      <div class="cache-status">
+        <span class="cache-dot idle" id="cacheDot"></span>
+        <span class="cache-info" id="cacheInfo">缓存: <span id="cacheBufSecs">—</span>s · <span id="cacheSong">—</span></span>
+      </div>
+      <button class="btn btn-primary" id="refreshBtn" <%= isProbing ? 'disabled' : '' %>>⟳ 刷新</button>
+    </div>
+  </div>
+
+  <!-- Jazz Legend -->
+  <div class="legend">
+    <span style="color:var(--text-dim);font-size:11px;">🎷 黑人爵士纯度:</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--jazz5)"></span> ★★★★★ 正宗黑爵士</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--jazz4)"></span> ★★★★ 黑人音乐</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--jazz3)"></span> ★★★ 爵士相关</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--jazz2)"></span> ★★ 一般</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--jazz1)"></span> ★ 名不副实</span>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters">
+    <input type="text" id="searchInput" placeholder="🔍 搜索电台名、歌曲..." style="flex:1;max-width:300px;">
+    <select id="jazzFilter">
+      <option value="all">所有电台</option>
+      <option value="5">★★★★★ 正宗黑爵士</option>
+      <option value="4">★★★★ 黑人音乐</option>
+      <option value="3">★★★ 爵士相关</option>
+      <option value="1">★ 名不副实</option>
+    </select>
+    <select id="statusFilter">
+      <option value="all">全部状态</option>
+      <option value="alive">在线</option>
+      <option value="dead">离线</option>
+    </select>
+    <select id="genreFilter">
+      <option value="all">全部风格</option>
+      <option value="Jazz/Blues">Jazz/Blues</option>
+      <option value="Soul/Funk">Soul/Funk</option>
+      <option value="Rock/Metal">Rock/Metal</option>
+      <option value="Dance/Electronic">Dance/Electronic</option>
+      <option value="Pop">Pop</option>
+      <option value="Hip-Hop/R&B">Hip-Hop/R&B</option>
+      <option value="Country">Country</option>
+      <option value="Latin/World">Latin/World</option>
+      <option value="Oldies/Retro">Oldies/Retro</option>
+      <option value="Lounge/Chill">Lounge/Chill</option>
+    </select>
+    <span id="resultCount" style="color:var(--text-dim);font-size:11px;margin-left:8px;"></span>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th data-sort="jazz" class="sorted">🎷 <span class="sort-arrow">▼</span></th>
+          <th data-sort="name">电台 <span class="sort-arrow">↕</span></th>
+          <th data-sort="genre">风格 <span class="sort-arrow">↕</span></th>
+          <th data-sort="bitrate">比特率 <span class="sort-arrow">↕</span></th>
+          <th data-sort="format">格式 <span class="sort-arrow">↕</span></th>
+          <th data-sort="latency">延迟 <span class="sort-arrow">↕</span></th>
+          <th data-sort="status">状态 <span class="sort-arrow">↕</span></th>
+          <th data-sort="song" style="min-width:200px;">当前歌曲 <span class="sort-arrow">↕</span></th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="stationTableBody">
+        <% stations.forEach(function(s) { %>
+          <tr class="station-row"
+              data-jazz="<%= s.jazzRating %>"
+              data-name="<%= s.name.toLowerCase() %>"
+              data-song="<%= (s.currentSong || '').toLowerCase() %>"
+              data-genre="<%= s.genre %>"
+              data-format="<%= s.format %>"
+              data-latency="<%= s.latency %>"
+              data-br="<%= s.bitrate %>"
+              data-alive="<%= s.alive %>">
+            <td><span class="jazz-badge jazz-badge-<%= s.jazzRating %>"><span class="jazz-stars"><% for (let i=0; i<5; i++) { %><%= i < s.jazzRating ? '★' : '☆' %><% } %></span><%= s.jazzRating %></span></td>
+            <td><strong><%= s.name %></strong></td>
+            <td style="color:var(--text-dim);font-size:11px;"><%= s.genre %></td>
+            <td class="br-cell"><%= s.bitrate > 0 ? s.bitrate + 'k' : '—' %></td>
+            <td><span class="fmt-badge fmt-<%= s.format.toLowerCase().replace(/[^a-z0-9]/g, '') %>"><%= s.format %></span></td>
+            <td><span class="latency-cell latency-<%= s.latency > 0 ? (s.latency < 200 ? 'fast' : s.latency < 800 ? 'mid' : 'slow') : 'none' %>"><%= s.latency > 0 ? s.latency + 'ms' : (s.alive ? '—' : '✕') %></span></td>
+            <td><span class="status-dot <%= s.alive ? 'alive' : 'dead' %>"></span> <span class="status-text <%= s.alive ? 'alive' : 'dead' %>"><%= s.alive ? '在线' : '离线' %></span></td>
+             <td class="song-cell <%= s.currentSong ? '' : 'empty' %>"><%= s.currentSong || '— 暂无数据 —' %></td>
+            <td><button class="select-btn" data-url="<%= s.url %>" data-name="<%= s.name.replace(/"/g, '&quot;') %>">选择</button><a class="listen-link" href="<%= s.url %>" target="_blank" rel="noopener">▶</a></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="last-updated">
+    最后全量更新: <span id="lastFullUpdate"><%= lastUpdated %></span>
+    · 数据自动刷新每 3 分钟
+    · <a href="/api/probe" style="color:var(--link);">SSE 实时流</a>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// Client-side filtering & sorting
+// ============================================================
+let sortCol = 'jazz';
+let sortDir = 'desc';
+
+function render() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const jazzVal = document.getElementById('jazzFilter').value;
+  const statusVal = document.getElementById('statusFilter').value;
+  const genreVal = document.getElementById('genreFilter').value;
+
+  const rows = Array.from(document.querySelectorAll('.station-row'));
+
+  // Filter
+  const filtered = rows.filter(row => {
+    if (jazzVal !== 'all' && row.dataset.jazz !== jazzVal) return false;
+    if (statusVal === 'alive' && row.dataset.alive !== 'true') return false;
+    if (statusVal === 'dead' && row.dataset.alive !== 'false') return false;
+    if (genreVal !== 'all' && row.dataset.genre !== genreVal) return false;
+    if (search) {
+      const name = row.dataset.name;
+      const song = row.dataset.song;
+      if (!name.includes(search) && !song.includes(search)) return false;
+    }
+    return true;
+  });
+
+  // Sort
+  filtered.sort((a, b) => {
+    let va, vb;
+    switch (sortCol) {
+      case 'jazz': va = parseInt(a.dataset.jazz); vb = parseInt(b.dataset.jazz); break;
+      case 'name': va = a.dataset.name; vb = b.dataset.name; break;
+      case 'genre': va = a.dataset.genre; vb = b.dataset.genre; break;
+      case 'bitrate': va = parseInt(a.dataset.br); vb = parseInt(b.dataset.br); break;
+      case 'format': va = a.dataset.format; vb = b.dataset.format; break;
+      case 'latency': va = parseInt(a.dataset.latency) || 9999; vb = parseInt(b.dataset.latency) || 9999; break;
+      case 'status': va = a.dataset.alive; vb = b.dataset.alive; break;
+      case 'song': va = a.dataset.song; vb = b.dataset.song; break;
+      default: return 0;
+    }
+    if (typeof va === 'string') {
+      return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    }
+    return sortDir === 'asc' ? va - vb : vb - va;
+  });
+
+  // Re-append
+  const tbody = document.getElementById('stationTableBody');
+  filtered.forEach(row => tbody.appendChild(row));
+
+  document.getElementById('resultCount').textContent = `${filtered.length} / ${rows.length}`;
+}
+
+// Event listeners
+document.getElementById('searchInput').addEventListener('input', render);
+document.getElementById('jazzFilter').addEventListener('change', render);
+document.getElementById('statusFilter').addEventListener('change', render);
+document.getElementById('genreFilter').addEventListener('change', render);
+
+document.querySelectorAll('thead th[data-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.sort;
+    if (col === sortCol) {
+      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortCol = col;
+      sortDir = col === 'jazz' ? 'desc' : 'asc';
+    }
+    document.querySelectorAll('thead th').forEach(h => h.classList.remove('sorted'));
+    th.classList.add('sorted');
+    th.querySelector('.sort-arrow').textContent = sortDir === 'asc' ? '▲' : '▼';
+    render();
+  });
+});
+
+// Initial render
+render();
+
+// ============================================================
+// SSE — real-time probe updates
+// ============================================================
+function connectSSE() {
+  const es = new EventSource('/api/probe');
+  const probeStatus = document.getElementById('probeStatus');
+  const lastUpdated = document.getElementById('lastUpdated');
+  const lastFullUpdate = document.getElementById('lastFullUpdate');
+  const refreshBtn = document.getElementById('refreshBtn');
+
+  let probeCount = 0;
+  let totalStations = <%= totalCount %>;
+
+  es.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+
+      if (data.type === 'snapshot') {
+        // Initial data load, updates rendered inline already
+        return;
+      }
+
+      if (data.type === 'probe_update') {
+        probeCount++;
+        probeStatus.textContent = `⏳ 扫描中... ${probeCount}/${totalStations}`;
+        refreshBtn.disabled = true;
+
+        // Update the specific row
+        const row = document.querySelector(`.station-row[data-id="${data.url}"]`);
+        // Since we don't have data-id, find by URL match in the listen link
+        const links = document.querySelectorAll('.listen-link');
+        for (const link of links) {
+          if (link.href === data.url) {
+            const row = link.closest('tr');
+            if (row) {
+              const songCell = row.querySelector('.song-cell');
+              songCell.textContent = data.currentSong || '— 暂无数据 —';
+              songCell.classList.toggle('empty', !data.currentSong);
+              row.dataset.alive = data.ok ? 'true' : 'false';
+              row.dataset.song = (data.currentSong || '').toLowerCase();
+              if (data.latency !== undefined) {
+                row.dataset.latency = data.latency;
+                const latCell = row.querySelector('.latency-cell');
+                if (latCell) {
+                  const ms = data.latency;
+                  const cls = ms > 0 ? (ms < 200 ? 'fast' : ms < 800 ? 'mid' : 'slow') : 'none';
+                  latCell.className = `latency-cell latency-${cls}`;
+                  latCell.textContent = ms > 0 ? ms + 'ms' : (data.ok ? '—' : '✕');
+                }
+              }
+              // Update status dot
+              const dot = row.querySelector('.status-dot');
+              const txt = row.querySelector('.status-text');
+              if (dot) { dot.className = `status-dot ${data.ok ? 'alive' : 'dead'}`; }
+              if (txt) { txt.className = `status-text ${data.ok ? 'alive' : 'dead'}`; txt.textContent = data.ok ? '在线' : '离线'; }
+            }
+            break;
+          }
+        }
+      }
+
+      if (data.type === 'probe_done') {
+        probeStatus.textContent = `✅ ${data.alive}/${data.total} 在线 (${data.elapsed}s)`;
+        refreshBtn.disabled = false;
+        const now = new Date();
+        lastUpdated.textContent = now.toLocaleTimeString();
+        lastFullUpdate.textContent = now.toLocaleTimeString();
+        probeCount = 0;
+      }
+    } catch(err) {
+      console.error('SSE parse error:', err);
+    }
+  };
+
+  es.onerror = () => {
+    probeStatus.textContent = '⚠️ SSE 断开, 重连中...';
+    es.close();
+    setTimeout(connectSSE, 3000);
+  };
+}
+
+connectSSE();
+
+// ============================================================
+// Station selection
+// ============================================================
+let currentSelectedUrl = null;
+
+async function loadSelected() {
+  try {
+    const r = await fetch('/api/selected');
+    const data = await r.json();
+    if (data && data.url) {
+      currentSelectedUrl = data.url;
+      updateSelectedUI();
+    }
+  } catch(e) {}
+}
+
+function updateSelectedUI() {
+  document.querySelectorAll('.station-row').forEach(row => {
+    const btn = row.querySelector('.select-btn');
+    if (!btn) return;
+    const url = btn.dataset.url;
+    if (url === currentSelectedUrl) {
+      btn.textContent = '✓ 已选';
+      btn.classList.add('selected');
+      row.classList.add('selected');
+    } else {
+      btn.textContent = '选择';
+      btn.classList.remove('selected');
+      row.classList.remove('selected');
+    }
+  });
+}
+
+document.querySelector('#stationTableBody').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.select-btn');
+  if (!btn) return;
+
+  const url = btn.dataset.url;
+  const isSame = url === currentSelectedUrl;
+
+  // If clicking the same one, deselect
+  const body = isSame ? JSON.stringify({ url: null }) : JSON.stringify({ url });
+
+  try {
+    const r = await fetch('/api/select', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body
+    });
+    const data = await r.json();
+    if (data.ok) {
+      currentSelectedUrl = isSame ? null : url;
+      updateSelectedUI();
+    }
+  } catch(e) {}
+});
+
+loadSelected();
+
+// Load saved volume from server
+async function loadVolume() {
+  try {
+    const r = await fetch('/api/selected');
+    const data = await r.json();
+    if (data && data.volume) {
+      document.getElementById('volumeSlider').value = data.volume;
+      document.getElementById('volumeDisplay').textContent = data.volume;
+    }
+  } catch(e) {}
+}
+loadVolume();
+
+// Volume slider
+document.getElementById('volumeSlider').addEventListener('input', async (e) => {
+  const v = parseInt(e.target.value);
+  document.getElementById('volumeDisplay').textContent = v;
+  try {
+    await fetch('/api/volume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ volume: v })
+    });
+  } catch(e) {}
+});
+
+// ============================================================
+// Cache status polling
+// ============================================================
+async function updateCacheStatus() {
+  try {
+    const r = await fetch('/radio/cache-status');
+    const data = await r.json();
+    const dot = document.getElementById('cacheDot');
+    const secs = document.getElementById('cacheBufSecs');
+    const song = document.getElementById('cacheSong');
+
+    if (data.active && data.bufferedSeconds > 0) {
+      dot.className = 'cache-dot active';
+      secs.textContent = data.bufferedSeconds.toFixed(1);
+      song.textContent = data.currentSong || (document.querySelector('.station-row.selected .song-cell')?.textContent?.trim() || '—');
+    } else if (data.active) {
+      dot.className = 'cache-dot active';
+      secs.textContent = '连接中';
+      song.textContent = '—';
+    } else {
+      dot.className = 'cache-dot idle';
+      secs.textContent = '—';
+      song.textContent = '未选择';
+    }
+  } catch(e) {}
+}
+setInterval(updateCacheStatus, 2000);
+updateCacheStatus();
+
+// ============================================================
+// Manual refresh
+// ============================================================
+document.getElementById('refreshBtn').addEventListener('click', () => {
+  fetch('/api/refresh', { method: 'POST' });
+});
+
+</script>
+</body>
+</html>

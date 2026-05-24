@@ -1,6 +1,14 @@
-# Cache files
-*.cache.json
-*.cache
+# Cache files (auto-generated, not tracked)
+*_cache.json
+*cache.json
+.cache
 
 # Analysis output (regenerated on each run)
 mp3_with_songs.txt
+
+# Node
+node_modules/
+package-lock.json
+
+# State
+.radio_state.json
